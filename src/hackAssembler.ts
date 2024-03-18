@@ -151,7 +151,7 @@ export class HackAssembler {
     char === '.' ||
     char === '$' ||
     char === ':'
-  private parseSymbol = (stopChar = '\n') => {
+  private parseSymbol = (stopChars = ['\n', ' ']) => {
     let curChar = this.getCurChar()
 
     if (HackAssembler.isDigit(curChar)) {
@@ -159,7 +159,7 @@ export class HackAssembler {
     }
 
     let symbol = ''
-    while (curChar !== stopChar) {
+    while (!stopChars.includes(curChar)) {
       if (!HackAssembler.testAllowedSymbolCharacters(curChar)) {
         this.throwErrorWithParserState(
           `Invalid character inside a symbol: "${curChar}"`
@@ -183,7 +183,7 @@ export class HackAssembler {
     }
     this.curCharIndex++
 
-    const instructionSymbol = this.parseSymbol(')')
+    const instructionSymbol = this.parseSymbol([')'])
 
     const instructionLabelSymbolIdentifier = {
       type: 'symbol_identifier',
@@ -203,7 +203,7 @@ export class HackAssembler {
     let constant = ''
 
     while (true) {
-      if (this.getCurChar() === '\n') {
+      if (this.getCurChar() === '\n' || this.getCurChar() === ' ') {
         break
       }
 
@@ -277,7 +277,7 @@ export class HackAssembler {
       }
     }
 
-    const symbolIdentifier = this.parseSymbol('\n')
+    const symbolIdentifier = this.parseSymbol()
     const symbol = this.getSymbol(symbolIdentifier)
 
     if (symbol) {
@@ -300,7 +300,12 @@ export class HackAssembler {
     let curPart = ''
     while (true) {
       const curChar = this.getCurChar()
-      if (curChar === '\n' || curChar === '' || curChar === undefined) {
+      if (
+        curChar === '\n' ||
+        curChar === ' ' ||
+        curChar === '' ||
+        curChar === undefined
+      ) {
         break
       }
 
