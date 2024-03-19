@@ -99,13 +99,15 @@ const dec2bin = (dec: number) => {
 export class HackAssembler {
   static variablesMemStart = 16
 
+  assemblyCode: string = ''
+
   curLine = 0
   curCharIndex = -1
   instructionCounter = 0
-  symbolsMemoryCounter = HackAssembler.variablesMemStart
-  assemblyCode: string = ''
 
   symbols: Record<string, SymbolIdentifier> = {}
+  symbolsMemoryCounter = HackAssembler.variablesMemStart
+
   instructions: Instruction[] = []
 
   private throwErrorWithParserState(errorDescription: string) {
@@ -131,8 +133,6 @@ export class HackAssembler {
   private getCurChar() {
     return this.assemblyCode.charAt(this.curCharIndex)
   }
-
-  // A user-defined symbol can be any sequence of letters, digits, underscore (_), dot (.), dollar sign ($), and colon (:) that does not begin with a digit.
 
   static isDigit = (char: string) => char >= '0' && char <= '9'
   static isLetter = (char: string) =>
@@ -180,14 +180,18 @@ export class HackAssembler {
     const instructionSymbol = this.parseSymbol([')'])
 
     if (this.symbols[instructionSymbol]) {
+      /**
+       * If the symbol is already defined, it means that it was used
+       * as a variable in some past instruction, so we just update
+       * its value to the current instruction counter.
+       */
       this.symbols[instructionSymbol].value = this.instructionCounter
     } else {
-      const instructionLabelSymbolIdentifier = {
+      this.symbols[instructionSymbol] = {
         type: 'symbol_identifier',
         identifier: instructionSymbol,
         value: this.instructionCounter,
-      } as const
-      this.symbols[instructionSymbol] = instructionLabelSymbolIdentifier
+      }
     }
 
     return this.symbols[instructionSymbol]
