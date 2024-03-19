@@ -153,7 +153,7 @@ export class HackAssembler {
     }
 
     let symbol = ''
-    while (!stopChars.includes(curChar)) {
+    while (!stopChars.includes(curChar) && curChar !== '') {
       if (!HackAssembler.testAllowedSymbolCharacters(curChar)) {
         this.throwErrorWithParserState(
           `Invalid character inside a symbol: "${curChar}"`
@@ -205,7 +205,12 @@ export class HackAssembler {
     let constant = ''
 
     while (true) {
-      if (this.getCurChar() === '\n' || this.getCurChar() === ' ') {
+      if (
+        this.getCurChar() === '\n' ||
+        this.getCurChar() === ' ' ||
+        this.getCurChar() === ''
+      ) {
+        this.curCharIndex--
         break
       }
 
@@ -300,12 +305,7 @@ export class HackAssembler {
     let curPart = ''
     while (true) {
       const curChar = this.getCurChar()
-      if (
-        curChar === '\n' ||
-        curChar === ' ' ||
-        curChar === '' ||
-        curChar === undefined
-      ) {
+      if (curChar === '\n' || curChar === ' ' || curChar === '') {
         break
       }
 
