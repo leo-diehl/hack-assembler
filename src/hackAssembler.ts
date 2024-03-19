@@ -1,9 +1,3 @@
-/*
-Constants and Symbols
-Constants must be non-negative and are written in decimal notation.
-A user-defined symbol can be any sequence of letters, digits, underscore (_), dot (.), dollar sign ($), and colon (:) that does not begin with a digit.
-*/
-
 interface Constant {
   type: 'constant'
   value: number
@@ -185,14 +179,18 @@ export class HackAssembler {
 
     const instructionSymbol = this.parseSymbol([')'])
 
-    const instructionLabelSymbolIdentifier = {
-      type: 'symbol_identifier',
-      identifier: instructionSymbol,
-      value: this.instructionCounter,
-    } as const
-    this.symbols[instructionSymbol] = instructionLabelSymbolIdentifier
+    if (this.symbols[instructionSymbol]) {
+      this.symbols[instructionSymbol].value = this.instructionCounter
+    } else {
+      const instructionLabelSymbolIdentifier = {
+        type: 'symbol_identifier',
+        identifier: instructionSymbol,
+        value: this.instructionCounter,
+      } as const
+      this.symbols[instructionSymbol] = instructionLabelSymbolIdentifier
+    }
 
-    return instructionLabelSymbolIdentifier
+    return this.symbols[instructionSymbol]
   }
 
   private parseConstant = (): Constant | null => {
@@ -255,9 +253,8 @@ export class HackAssembler {
       this.symbols[identifier] = {
         type: 'symbol_identifier',
         identifier: identifier,
-        value: this.symbolsMemoryCounter,
+        value: Number.NaN,
       }
-      this.symbolsMemoryCounter++
     }
 
     return this.symbols[identifier]
@@ -281,7 +278,6 @@ export class HackAssembler {
     const symbol = this.getSymbol(symbolIdentifier)
 
     if (symbol) {
-      this.curLine++
       return {
         type: 'a_instruction',
         operand: symbol,
@@ -363,7 +359,6 @@ export class HackAssembler {
       )
     }
 
-    this.curLine++
     return {
       type: 'c_instruction',
       dest: dest as Dest | null,
@@ -403,6 +398,9 @@ export class HackAssembler {
     this.curLine++
 
     while (this.curCharIndex < this.assemblyCode.length) {
+      if (this.getCurChar() === '\n') {
+        this.curLine++
+      }
       this.curCharIndex++
 
       this.skipCommentsAndBlankSpaces()
@@ -412,6 +410,19 @@ export class HackAssembler {
 
       this.parseNext()
     }
+
+    /**
+     * The symbols that will have no value at this point are the ones
+     * that don't represent instruction labels, since the symbols that
+     * represent instruction labels will have their values set when the
+     * instruction label itself is reached by the parser.
+     */
+    Object.values(this.symbols).forEach((symbol) => {
+      if (Number.isNaN(symbol.value)) {
+        symbol.value = this.symbolsMemoryCounter
+        this.symbolsMemoryCounter++
+      }
+    })
   }
 
   loadAssemblyCode(assemblyCode: string) {
@@ -466,11 +477,10 @@ export class HackAssembler {
   }
 
   compile() {
-    return this.instructions.map((instruction) => {
-      if (instruction.type === 'a_instruction') {
-        return this.compileAInstruction(instruction)
-      }
-      return this.compileCInstruction(instruction)
-    })
+    return this.instructions.map((instruction) =>
+      instruction.type === 'a_instruction'
+        ? this.compileAInstruction(instruction)
+        : this.compileCInstruction(instruction)
+    )
   }
 }

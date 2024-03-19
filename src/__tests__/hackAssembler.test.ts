@@ -1,70 +1,38 @@
-import { readFileSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { HackAssembler } from '../hackAssembler'
 
 import { expect, test } from 'vitest'
 
-test('fixture 1', () => {
+const testFixture = (fixtureName: string) => {
   const assembler = new HackAssembler()
 
-  const assembly = readFileSync('src/__tests__/fixtures/test_1.asm', 'utf-8')
-  const hack = readFileSync('src/__tests__/fixtures/test_1.hack', 'utf-8')
+  const assembly = readFileSync(
+    `src/__tests__/fixtures/${fixtureName}.asm`,
+    'utf-8'
+  )
+  const hack = readFileSync(
+    `src/__tests__/fixtures/${fixtureName}.hack`,
+    'utf-8'
+  )
 
   assembler.loadAssemblyCode(assembly)
 
-  expect(assembler.parse().compile()).toEqual(hack.split('\n').filter(Boolean))
-})
+  const compiled = assembler.parse().compile()
+  writeFileSync(
+    `src/__tests__/compiled_result/${fixtureName}.hack`,
+    compiled.join('\n')
+  )
 
-test('fixture 2', () => {
-  const assembler = new HackAssembler()
+  expect(compiled).toEqual(hack.split('\n').filter(Boolean))
+}
 
-  const assembly = readFileSync('src/__tests__/fixtures/test_2.asm', 'utf-8')
-  const hack = readFileSync('src/__tests__/fixtures/test_2.hack', 'utf-8')
+if (!existsSync('src/__tests__/compiled_result')) {
+  mkdirSync('src/__tests__/compiled_result')
+}
 
-  assembler.loadAssemblyCode(assembly)
-
-  expect(assembler.parse().compile()).toEqual(hack.split('\n').filter(Boolean))
-})
-
-test('fixture 3', () => {
-  const assembler = new HackAssembler()
-
-  const assembly = readFileSync('src/__tests__/fixtures/test_3.asm', 'utf-8')
-  const hack = readFileSync('src/__tests__/fixtures/test_3.hack', 'utf-8')
-
-  assembler.loadAssemblyCode(assembly)
-
-  expect(assembler.parse().compile()).toEqual(hack.split('\n').filter(Boolean))
-})
-
-// test('fixture 4', () => {
-//   const assembler = new HackAssembler()
-
-//   const assembly = readFileSync('src/__tests__/fixtures/test_4.asm', 'utf-8')
-//   const hack = readFileSync('src/__tests__/fixtures/test_4.hack', 'utf-8')
-
-//   assembler.loadAssemblyCode(assembly)
-
-//   expect(assembler.parse().compile()).toEqual(hack.split('\n').filter(Boolean))
-// })
-
-// test('fixture 5', () => {
-//   const assembler = new HackAssembler()
-
-//   const assembly = readFileSync('src/__tests__/fixtures/test_5.asm', 'utf-8')
-//   const hack = readFileSync('src/__tests__/fixtures/test_5.hack', 'utf-8')
-
-//   assembler.loadAssemblyCode(assembly)
-
-//   expect(assembler.parse().compile()).toEqual(hack.split('\n').filter(Boolean))
-// })
-
-// test('fixture 6', () => {
-//   const assembler = new HackAssembler()
-
-//   const assembly = readFileSync('src/__tests__/fixtures/test_6.asm', 'utf-8')
-//   const hack = readFileSync('src/__tests__/fixtures/test_6.hack', 'utf-8')
-
-//   assembler.loadAssemblyCode(assembly)
-
-//   expect(assembler.parse().compile()).toEqual(hack.split('\n').filter(Boolean))
-// })
+test.each(['test_1', 'test_2', 'test_3', 'test_4', 'test_5', 'test_6'])(
+  'fixtures/%s',
+  (fixtureName) => {
+    testFixture(fixtureName)
+  }
+)

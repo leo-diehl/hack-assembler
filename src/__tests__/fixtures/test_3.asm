@@ -42,3 +42,5 @@ M=M-1 // Puts the value of J - 1 into the J memory address
 // loop
 @FOR_START // Puts the FOR_START address into the A register
 0;JMP // Jumps to the FOR_START address
+
+(FOR_END)
