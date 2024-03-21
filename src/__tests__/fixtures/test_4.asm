@@ -5,7 +5,7 @@
 //   j = 2
 
 // i=4
-@4 // Puts the constant 4 into the A register
+@4// Puts the constant 4 into the A register
 D=A // Puts the value of A (4) into the D register
 @i // Puts the i address into the A register
 M=D // Puts the value of D (4) into the i memory address

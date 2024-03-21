@@ -1,112 +1,68 @@
-interface Constant {
-  type: 'constant'
-  value: number
-}
-
-interface SymbolIdentifier {
-  type: 'symbol_identifier'
-  identifier: string
-  value: number
-}
-
-interface AInstruction {
-  type: 'a_instruction'
-  operand: Constant | SymbolIdentifier
-}
-
-type Dest = keyof typeof DESTS
-type Comp = keyof typeof COMPS
-type Jump = keyof typeof JUMPS
-
-interface CInstruction {
-  type: 'c_instruction'
-  dest: Dest | null
-  comp: Comp
-  jump: Jump | null
-}
-
-type Instruction = AInstruction | CInstruction
-
-const COMPS = {
-  '0': '0101010',
-  '1': '0111111',
-  '-1': '0111010',
-  D: '0001100',
-  A: '0110000',
-  '!D': '0001101',
-  '!A': '0110001',
-  '-D': '0001111',
-  '-A': '0110011',
-  'D+1': '0011111',
-  'A+1': '0110111',
-  'D-1': '0001110',
-  'A-1': '0110010',
-  'D+A': '0000010',
-  'D-A': '0010011',
-  'A-D': '0000111',
-  'D&A': '0000000',
-  'D|A': '0010101',
-  M: '1110000',
-  '!M': '1110001',
-  '-M': '1110011',
-  'M+1': '1110111',
-  'M-1': '1110010',
-  'D+M': '1000010',
-  'D-M': '1010011',
-  'M-D': '1000111',
-  'D&M': '1000000',
-  'D|M': '1010101',
-} as const
-
-const DESTS = {
-  null: '000',
-  M: '001',
-  D: '010',
-  MD: '011',
-  A: '100',
-  AM: '101',
-  AD: '110',
-  AMD: '111',
-} as const
-
-const JUMPS = {
-  null: '000',
-  JGT: '001',
-  JEQ: '010',
-  JGE: '011',
-  JLT: '100',
-  JNE: '101',
-  JLE: '110',
-  JMP: '111',
-} as const
+import {
+  Constant,
+  SymbolIdentifier,
+  AInstruction,
+  CInstruction,
+  Instruction,
+  type Dest,
+  type Comp,
+  type Jump,
+  DEST,
+  COMP,
+  JUMP,
+} from './types'
 
 const isDest = (dest: string): dest is Dest => {
-  return DESTS.hasOwnProperty(dest)
+  return DEST.hasOwnProperty(dest)
 }
 
 const isComp = (comp: string): comp is Comp => {
-  return COMPS.hasOwnProperty(comp)
+  return COMP.hasOwnProperty(comp)
 }
 
 const isJump = (jump: string): jump is Jump => {
-  return JUMPS.hasOwnProperty(jump)
+  return JUMP.hasOwnProperty(jump)
 }
 
-const dec2bin = (dec: number) => {
-  return (dec >>> 0).toString(2)
+type IgnoredChar = '' | ' ' | '\n' | '\t' | '\r' | '/'
+const isIgnoredChar = (char: string) => {
+  switch (char as IgnoredChar) {
+    case '':
+    case ' ':
+    case '\n':
+    case '\t':
+    case '\r':
+    case '/':
+      return true
+    default:
+      return false
+  }
 }
+
+const isDigit = (char: string) => char >= '0' && char <= '9'
+
+const isLetter = (char: string) =>
+  (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z')
+
+const testAllowedSymbolCharacters = (char: string) =>
+  isDigit(char) ||
+  isLetter(char) ||
+  char === '_' ||
+  char === '.' ||
+  char === '$' ||
+  char === ':'
 
 export class HackAssembler {
   static variablesMemStart = 16
 
-  assemblyCode: string = ''
+  private assemblyCode: string = ''
 
-  curLine = 0
-  curCharIndex = -1
-  instructionCounter = 0
+  private curLine = 0
+  private curCharIndex = -1
+  private instructionCounter = 0
 
-  symbols: Record<string, SymbolIdentifier> = {}
-  symbolsMemoryCounter = HackAssembler.variablesMemStart
+  private symbols: Record<string, SymbolIdentifier> = {}
+  private symbolsMemoryCounter = HackAssembler.variablesMemStart
 
   instructions: Instruction[] = []
 
@@ -134,27 +90,19 @@ export class HackAssembler {
     return this.assemblyCode.charAt(this.curCharIndex)
   }
 
-  static isDigit = (char: string) => char >= '0' && char <= '9'
-  static isLetter = (char: string) =>
-    (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z')
-
-  static testAllowedSymbolCharacters = (char: string) =>
-    HackAssembler.isDigit(char) ||
-    HackAssembler.isLetter(char) ||
-    char === '_' ||
-    char === '.' ||
-    char === '$' ||
-    char === ':'
-  private parseSymbol = (stopChars = ['\n', ' ']) => {
+  private parseSymbol = (stopChars?: string[]) => {
     let curChar = this.getCurChar()
 
-    if (HackAssembler.isDigit(curChar)) {
+    if (isDigit(curChar)) {
       this.throwErrorWithParserState("A symbol can't start with a digit")
     }
 
     let symbol = ''
-    while (!stopChars.includes(curChar) && curChar !== '') {
-      if (!HackAssembler.testAllowedSymbolCharacters(curChar)) {
+    while (
+      curChar &&
+      (stopChars ? !stopChars.includes(curChar) : !isIgnoredChar(curChar))
+    ) {
+      if (!testAllowedSymbolCharacters(curChar)) {
         this.throwErrorWithParserState(
           `Invalid character inside a symbol: "${curChar}"`
         )
@@ -198,23 +146,19 @@ export class HackAssembler {
   }
 
   private parseConstant = (): Constant | null => {
-    if (!HackAssembler.isDigit(this.assemblyCode[this.curCharIndex])) {
+    if (!isDigit(this.assemblyCode[this.curCharIndex])) {
       return null
     }
 
     let constant = ''
 
     while (true) {
-      if (
-        this.getCurChar() === '\n' ||
-        this.getCurChar() === ' ' ||
-        this.getCurChar() === ''
-      ) {
+      if (isIgnoredChar(this.getCurChar())) {
         this.curCharIndex--
         break
       }
 
-      if (!HackAssembler.isDigit(this.getCurChar())) {
+      if (!isDigit(this.getCurChar())) {
         this.throwErrorWithParserState(
           `Invalid character inside a constant: "${this.getCurChar()}"`
         )
@@ -230,33 +174,44 @@ export class HackAssembler {
     }
   }
 
-  private skipCommentsAndBlankSpaces = () => {
+  private skipIgnoredChars = () => {
+    if (!isIgnoredChar(this.getCurChar())) {
+      return
+    }
+
     while (true) {
-      if (this.getCurChar() === '/') {
-        const nextNewlineIndex = this.assemblyCode.indexOf(
-          '\n',
-          this.curCharIndex
-        )
-        this.curLine++
-        this.curCharIndex = nextNewlineIndex + 1
-        continue
+      switch (this.getCurChar() as IgnoredChar) {
+        case '':
+          return
+        case ' ':
+        case '\t':
+        case '\r':
+          this.curCharIndex++
+          break
+        case '\n':
+          this.curCharIndex++
+          this.curLine++
+          break
+        case '/':
+          const nextNewlineIndex = this.assemblyCode.indexOf(
+            '\n',
+            this.curCharIndex
+          )
+          this.curLine++
+          this.curCharIndex = nextNewlineIndex + 1
+          break
+        default:
+          return
       }
-
-      if (this.getCurChar() === ' ') {
-        this.curCharIndex++
-        continue
-      }
-
-      if (this.getCurChar() === '\n') {
-        this.curCharIndex++
-        this.curLine++
-        continue
-      }
-
-      break
     }
   }
 
+  /**
+   * Get a symbol from the symbols table, if it doesn't exist, create it.
+   * We initialize the value of the symbol as NaN but they will be populated during further parsing:
+   * - Instruction labels: will be populated when the the instruction label is reached by the parser.
+   * - Memory pointers: will be populated in the end of the script.
+   */
   private getSymbol = (identifier: string) => {
     if (this.symbols[identifier] === undefined) {
       this.symbols[identifier] = {
@@ -305,7 +260,7 @@ export class HackAssembler {
     let curPart = ''
     while (true) {
       const curChar = this.getCurChar()
-      if (curChar === '\n' || curChar === ' ' || curChar === '') {
+      if (isIgnoredChar(curChar)) {
         break
       }
 
@@ -398,16 +353,19 @@ export class HackAssembler {
     this.instructions = []
   }
 
-  private interpret() {
+  loadAssemblyCode(assemblyCode: string) {
+    this.assemblyCode = assemblyCode
+  }
+
+  parse() {
+    this.resetParserState()
+
     this.curLine++
 
     while (this.curCharIndex < this.assemblyCode.length) {
-      if (this.getCurChar() === '\n') {
-        this.curLine++
-      }
       this.curCharIndex++
+      this.skipIgnoredChars()
 
-      this.skipCommentsAndBlankSpaces()
       if (this.curCharIndex >= this.assemblyCode.length) {
         break
       }
@@ -427,64 +385,7 @@ export class HackAssembler {
         this.symbolsMemoryCounter++
       }
     })
-  }
 
-  loadAssemblyCode(assemblyCode: string) {
-    this.assemblyCode = assemblyCode
-  }
-
-  private setBinaryLength = (binary: string, length: number) => {
-    if (binary.length > length) {
-      throw new Error(`Binary length exceeded: ${binary}`)
-    }
-
-    return '0'.repeat(length - binary.length) + binary
-  }
-
-  private compileConstant = (constant: Constant) => {
-    const binaryValue = dec2bin(constant.value)
-    if (binaryValue.length > 15) {
-      throw new Error(`Constant exceeded 15 bits limit: ${constant.value}`)
-    }
-
-    return binaryValue
-  }
-  private compileSymbol = (symbol: SymbolIdentifier) => dec2bin(symbol.value)
-  private compileAInstruction = (aInstruction: AInstruction) => {
-    const compiledOperand =
-      aInstruction.operand.type === 'constant'
-        ? this.compileConstant(aInstruction.operand)
-        : this.compileSymbol(aInstruction.operand)
-
-    const compiledOperandWithLeadingZeros = this.setBinaryLength(
-      compiledOperand,
-      15
-    )
-
-    return `0${compiledOperandWithLeadingZeros}`
-  }
-
-  private compileCInstruction = (cInstruction: CInstruction) => {
-    const dest = cInstruction.dest ? DESTS[cInstruction.dest] : DESTS.null
-    const comp = COMPS[cInstruction.comp]
-    const jump = cInstruction.jump ? JUMPS[cInstruction.jump] : JUMPS.null
-
-    return `111${comp}${dest}${jump}`
-  }
-
-  parse() {
-    this.resetParserState()
-
-    this.interpret()
-
-    return this
-  }
-
-  compile() {
-    return this.instructions.map((instruction) =>
-      instruction.type === 'a_instruction'
-        ? this.compileAInstruction(instruction)
-        : this.compileCInstruction(instruction)
-    )
+    return this.instructions
   }
 }

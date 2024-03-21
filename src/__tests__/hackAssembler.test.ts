@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
-import { HackAssembler } from '../hackAssembler'
+import { HackAssembler } from '../assembler'
 
 import { expect, test } from 'vitest'
+import { compileInstructions } from '../compiler'
 
 const testFixture = (fixtureName: string) => {
   const assembler = new HackAssembler()
@@ -17,7 +18,8 @@ const testFixture = (fixtureName: string) => {
 
   assembler.loadAssemblyCode(assembly)
 
-  const compiled = assembler.parse().compile()
+  const instructions = assembler.parse()
+  const compiled = compileInstructions(instructions)
   writeFileSync(
     `src/__tests__/compiled_result/${fixtureName}.hack`,
     compiled.join('\n')
