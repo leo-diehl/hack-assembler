@@ -145,7 +145,7 @@ export class HackAssembler {
     return this.symbols[instructionSymbol]
   }
 
-  private parseConstant = (): Constant | null => {
+  private parseConstant = (stopChars?: string[]): Constant | null => {
     if (!isDigit(this.assemblyCode[this.curCharIndex])) {
       return null
     }
@@ -153,7 +153,11 @@ export class HackAssembler {
     let constant = ''
 
     while (true) {
-      if (isIgnoredChar(this.getCurChar())) {
+      if (
+        stopChars
+          ? stopChars.includes(this.getCurChar())
+          : isIgnoredChar(this.getCurChar())
+      ) {
         this.curCharIndex--
         break
       }
@@ -222,6 +226,83 @@ export class HackAssembler {
     }
 
     return this.symbols[identifier]
+  }
+
+  parseConstantToMemoryAssignment(): Instruction[] | null {
+    if (this.getCurChar() !== 'M') {
+      return null
+    }
+
+    this.curCharIndex++
+    if (this.getCurChar() !== '[') {
+      this.curCharIndex--
+      return null
+    }
+
+    this.curCharIndex++
+    let memLocation
+    const parsedConstant = this.parseConstant([']'])
+    if (parsedConstant) {
+      memLocation = parsedConstant
+    } else {
+      const symbolIdentifier = this.parseSymbol([']'])
+      memLocation = this.getSymbol(symbolIdentifier)
+      this.curCharIndex-- // TODO: fix parseSymbol to not consume end characters
+    }
+
+    this.curCharIndex++
+    if (this.getCurChar() !== ']') {
+      this.throwErrorWithParserState('Expected "]"')
+    }
+
+    this.curCharIndex++
+    if (this.getCurChar() !== '=') {
+      this.throwErrorWithParserState('Expected "="')
+    }
+
+    this.curCharIndex++
+    const constant = this.parseConstant()
+    if (!constant) {
+      this.throwErrorWithParserState('Expected a constant value')
+      return null
+    }
+
+    this.curCharIndex++
+    this.instructionCounter += 4
+
+    return [
+      {
+        type: 'a_instruction',
+        operand: constant,
+      },
+      {
+        type: 'c_instruction',
+        dest: 'D',
+        comp: 'A',
+        jump: null,
+      },
+      {
+        type: 'a_instruction',
+        operand: memLocation,
+      },
+      {
+        type: 'c_instruction',
+        dest: 'M',
+        comp: 'D',
+        jump: null,
+      },
+    ]
+  }
+
+  parseMacros() {
+    const constantToMemoryAssignmentInstructions =
+      this.parseConstantToMemoryAssignment()
+    if (constantToMemoryAssignmentInstructions) {
+      this.instructions = this.instructions.concat(
+        constantToMemoryAssignmentInstructions
+      )
+      return true
+    }
   }
 
   private parseAInstruction = (): AInstruction | null => {
@@ -327,6 +408,10 @@ export class HackAssembler {
   }
 
   private parseNext = () => {
+    if (this.parseMacros()) {
+      return
+    }
+
     const parsedInstructionLabel = this.parseInstructionLabel()
     if (parsedInstructionLabel) {
       return

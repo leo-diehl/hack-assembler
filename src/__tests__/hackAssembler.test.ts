@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { HackAssembler } from '../assembler'
 
-import { expect, test } from 'vitest'
+import { beforeAll, describe, expect, test } from 'vitest'
 import { compileInstructions } from '../compiler'
 
 const testFixture = (fixtureName: string) => {
@@ -28,13 +28,54 @@ const testFixture = (fixtureName: string) => {
   expect(compiled).toEqual(hack.split('\n').filter(Boolean))
 }
 
-if (!existsSync('src/__tests__/compiled_result')) {
-  mkdirSync('src/__tests__/compiled_result')
-}
+describe('fixtures', () => {
+  beforeAll(() => {
+    if (!existsSync('src/__tests__/compiled_result')) {
+      mkdirSync('src/__tests__/compiled_result')
+    }
+  })
 
-test.each(['test_1', 'test_2', 'test_3', 'test_4', 'test_5', 'test_6'])(
-  'fixtures/%s',
-  (fixtureName) => {
-    testFixture(fixtureName)
-  }
-)
+  test.each(['test_1', 'test_2', 'test_3', 'test_4', 'test_5', 'test_6'])(
+    '%s',
+    (fixtureName) => {
+      testFixture(fixtureName)
+    }
+  )
+})
+
+test('parseConstantToMemoryAssignment macro', () => {
+  const assembler = new HackAssembler()
+
+  assembler.loadAssemblyCode(`
+    @5
+    D=A
+    @i
+    M=D
+
+    @200
+    D=A
+    @10
+    M=D
+
+    @END
+    0;JMP
+
+    (END)
+  `)
+  const instructions = assembler.parse()
+  const compiled = compileInstructions(instructions)
+
+  assembler.loadAssemblyCode(`
+    M[i]=5
+    M[10]=200
+
+    @END
+    0;JMP
+
+    (END)
+  `)
+  const instructionsUsingMacro = assembler.parse()
+  const compiledUsingMacro = compileInstructions(instructionsUsingMacro)
+
+  expect(compiledUsingMacro).toEqual(compiled)
+})
